@@ -330,13 +330,42 @@ The next lab will use these workload identities to establish mTLS.
 
 
 
-### Lab 4
+### Lab 4  — mTLS between Frontend and Backend
 
-Enable mTLS between frontend and backend.
+## Goal
+
+Enable mTLS between the frontend and backend using:
+
+- SPIFFE workload identities
+- SPIRE Agent
+- X.509-SVIDs
+- Envoy
+- SDS
+
+Traffic flow:
 
 ```text
-FE == mTLS ==> BE
-```
+Client
+  |
+  | HTTP
+  v
+Frontend / Nginx
+  |
+  | HTTP
+  v
+Frontend Envoy
+  |
+  | mTLS
+  v
+Backend Envoy
+  |
+  | HTTP
+  v
+Backend
+  |
+  | PostgreSQL (plaintext)
+  v
+Database
 
 ### Lab 5
 

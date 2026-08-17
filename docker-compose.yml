@@ -4,16 +4,14 @@ services:
       context: ./frontend
     container_name: lab-frontend
     # LAB 3
-    labels:
-      spiffe.workload: frontend
+    # labels:
+    #   spiffe.workload: frontend
 
     ports:
       - "8080:80"
     depends_on:
       backend:
         condition: service_healthy
-    volumes:
-      - ./spire/sockets:/run/spire/sockets:ro
 
     networks:
       - lab-network
@@ -24,8 +22,8 @@ services:
     container_name: lab-backend
 
     # LAB 3
-    labels:
-      spiffe.workload: backend
+    # labels:
+    #   spiffe.workload: backend
 
     environment:
       DB_HOST: database
@@ -36,8 +34,6 @@ services:
     depends_on:
       database:
         condition: service_healthy
-    volumes:
-      - ./spire/sockets:/run/spire/sockets:ro
     healthcheck:
       test:
         [
@@ -67,7 +63,6 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ./spire/sockets:/run/spire/sockets:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
       interval: 5s
@@ -93,6 +88,10 @@ services:
   spire-agent:
     image: ghcr.io/spiffe/spire-agent:1.15.2
     container_name: spire-agent
+    
+    # Important for Docker workload attestation
+    pid: host
+
     command:
       - -config
       - /run/spire/config/agent.conf
@@ -101,17 +100,67 @@ services:
     volumes:
       - ./spire/agent.conf:/run/spire/config/agent.conf:ro
       - ./spire/agent-data:/run/spire/data
-      - ./spire/sockets:/run/spire/sockets
+      - spire-agent-socket:/run/spire/sockets
       # LAB 2: needed by WorkloadAttestor "docker"
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - lab-network
 
+  # LAB 4
+  frontend-envoy:
+    image: envoyproxy/envoy:v1.39.0
+    container_name: lab-frontend-envoy
+
+    labels:
+      spiffe.workload: frontend
+
+    command:
+      - -c
+      - /etc/envoy/envoy.yaml
+      - --log-level
+      - info
+
+    volumes:
+      - ./envoy/frontend-envoy.yaml:/etc/envoy/envoy.yaml:ro
+      - spire-agent-socket:/run/spire/sockets:ro
+
+    network_mode: "service:frontend"
+
+    depends_on:
+      frontend:
+        condition: service_started
+      spire-agent:
+        condition: service_started
+
+
+  # LAB 4
+  backend-envoy:
+    image: envoyproxy/envoy:v1.39.0
+    container_name: lab-backend-envoy
+
+    labels:
+      spiffe.workload: backend
+
+    command:
+      - -c
+      - /etc/envoy/envoy.yaml
+      - --log-level
+      - info
+
+    volumes:
+      - ./envoy/backend-envoy.yaml:/etc/envoy/envoy.yaml:ro
+      - spire-agent-socket:/run/spire/sockets:ro
+
+    network_mode: "service:backend"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+      spire-agent:
+        condition: service_started
+
 volumes:
   postgres-data:
-  spire-server-data:
-  spire-server-socket:
-  spire-agent-data:
   spire-agent-socket:
 
 networks:

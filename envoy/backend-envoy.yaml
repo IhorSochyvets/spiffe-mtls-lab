@@ -2,3 +2,134 @@
 #
 # Not used in Lab 1.
 # mTLS proxy configuration will be added later.
+node:
+  id: backend-envoy
+  cluster: backend
+
+static_resources:
+
+  listeners:
+
+    # =====================================
+    # mTLS listener
+    # =====================================
+
+    - name: backend_mtls_listener
+
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8443
+
+      filter_chains:
+
+        - transport_socket:
+            name: envoy.transport_sockets.tls
+
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+
+              require_client_certificate: true
+
+              common_tls_context:
+
+                # BE X509-SVID
+                tls_certificate_sds_secret_configs:
+                  - name: "spiffe://lab.local/backend"
+
+                    sds_config:
+                      resource_api_version: V3
+
+                      api_config_source:
+                        api_type: GRPC
+                        transport_api_version: V3
+
+                        grpc_services:
+                          - envoy_grpc:
+                              cluster_name: spire_agent
+
+
+                # Trust SPIRE CA but accept ONLY frontend
+                combined_validation_context:
+
+                  default_validation_context:
+                    match_typed_subject_alt_names:
+                      - san_type: URI
+
+                        matcher:
+                          exact: "spiffe://lab.local/frontend"
+
+                  validation_context_sds_secret_config:
+                    name: "spiffe://lab.local"
+
+                    sds_config:
+                      resource_api_version: V3
+
+                      api_config_source:
+                        api_type: GRPC
+                        transport_api_version: V3
+
+                        grpc_services:
+                          - envoy_grpc:
+                              cluster_name: spire_agent
+
+
+          filters:
+
+            - name: envoy.filters.network.http_connection_manager
+
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+
+                stat_prefix: backend_mtls
+
+                route_config:
+                  name: backend_local_route
+
+                  virtual_hosts:
+
+                    - name: backend
+
+                      domains:
+                        - "*"
+
+                      routes:
+                        - match:
+                            prefix: "/"
+
+                          route:
+                            cluster: backend_local
+
+                http_filters:
+                  - name: envoy.filters.http.router
+
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    - name: spire_agent
+      connect_timeout: 0.25s
+      http2_protocol_options: {}
+
+      load_assignment:
+        cluster_name: spire_agent
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    pipe:
+                      path: /run/spire/sockets/agent.sock
+
+    - name: backend_local
+      connect_timeout: 2s
+      type: STATIC
+
+      load_assignment:
+        cluster_name: backend_local
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 8000
