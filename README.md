@@ -129,17 +129,191 @@ docker compose down -v
 
 ## Planned labs
 
-### Lab 1
+### Lab 1 — Frontend, Backend and Database
 
-Plain communication.
+Lab 1 creates the basic application without SPIFFE, SPIRE or mTLS.
 
 ```text
-FE -- HTTP --> BE -- PostgreSQL --> DB
+Browser
+   |
+   | HTTP
+   v
+Frontend / Nginx
+   |
+   | HTTP
+   v
+Backend / FastAPI
+   |
+   | PostgreSQL
+   v
+Database / PostgreSQL
 ```
 
-### Lab 2
+### 1. Start Lab
 
-Add SPIRE Server and SPIRE Agent.
+```bash
+docker compose up -d --build
+```
+
+Verify:
+
+```bash
+docker compose ps
+```
+
+Frontend, backend and database should be running.
+
+### 2. Test Frontend
+
+Open in a browser:
+
+```text
+http://localhost:8080
+```
+
+### 3. Test Backend
+
+The frontend proxies `/api/` to the backend:
+
+```bash
+curl http://localhost:8080/api/
+```
+
+Expected result:
+
+```json
+{
+  "service": "backend",
+  "status": "ok",
+  "lab": "Lab 1",
+  "transport": "HTTP",
+  "mtls": false,
+  "spiffe": false
+}
+```
+
+### 4. Test Database
+
+Test the complete FE → BE → DB path:
+
+```bash
+curl http://localhost:8080/api/messages
+```
+
+Expected result contains messages loaded from PostgreSQL.
+
+### Lab 1 Result
+
+```text
+[✓] Frontend
+[✓] Backend
+[✓] PostgreSQL
+[✓] FE → BE communication
+[✓] BE → DB communication
+[ ] SPIRE
+[ ] SPIFFE identities
+[ ] mTLS
+```
+
+All internal communication is still plaintext.
+
+### Lab 2 — SPIRE Server and Agent
+
+Lab 2 adds the SPIRE Server and SPIRE Agent.
+
+```text
+SPIRE Server
+     ^
+     |
+     | Node Attestation
+     |
+SPIRE Agent
+```
+
+### 1. Start SPIRE Server
+
+```bash
+docker compose up -d spire-server
+```
+
+Verify:
+
+```bash
+docker compose ps spire-server
+```
+
+### 2. Generate Agent Join Token
+
+```bash
+docker compose exec spire-server \
+  /opt/spire/bin/spire-server token generate \
+  -socketPath /tmp/spire-server/private/api.sock
+```
+
+Example:
+
+```text
+Token: 7471264b-e009-475d-8e6e-a0f35bd9059c
+```
+
+The join token is temporary and can only be used once.
+
+### 3. Bootstrap SPIRE Agent
+
+Use the generated token:
+
+```bash
+docker compose run --rm spire-agent \
+  -config /run/spire/config/agent.conf \
+  -joinToken YOUR_TOKEN
+```
+
+Leave the agent running.
+
+### 4. Verify Agent
+
+In another terminal:
+
+```bash
+docker compose exec spire-server \
+  /opt/spire/bin/spire-server agent list \
+  -socketPath /tmp/spire-server/private/api.sock
+```
+
+Expected result:
+
+```text
+Found 1 attested agent:
+
+SPIFFE ID         : spiffe://lab.local/spire/agent/join_token/...
+Attestation type  : join_token
+Agent version     : 1.15.2
+```
+
+### 5. Start Agent Normally
+
+After the first successful attestation, the agent state is persisted.
+
+Stop the interactive agent and start it normally:
+
+```bash
+docker compose up -d spire-agent
+```
+
+The join token is no longer required.
+
+### Lab 2 Result
+
+```text
+[✓] SPIRE Server
+[✓] SPIRE Agent
+[✓] Node attestation
+[✓] Agent SVID
+[ ] Workload identities
+[ ] mTLS
+```
+
+Frontend → Backend → Database communication is still unchanged and plaintext.
 
 ### Lab 3
 
