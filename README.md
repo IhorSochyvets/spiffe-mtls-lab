@@ -203,15 +203,132 @@ The join token is no longer required.
 
 Frontend → Backend → Database communication is still unchanged and plaintext.
 
-### Lab 3
+## Lab 3 — Workload Identities
 
-Assign workload identities:
+Lab 3 assigns SPIFFE identities to the frontend, backend and database using Docker workload attestation.
 
 ```text
-spiffe://lab.local/frontend
-spiffe://lab.local/backend
-spiffe://lab.local/database
+Frontend  -> spiffe://lab.local/frontend
+Backend   -> spiffe://lab.local/backend
+Database  -> spiffe://lab.local/database
 ```
+
+### 1. Add Workload Labels
+
+Each service has a Docker label:
+
+```yaml
+labels:
+  spiffe.workload: frontend
+```
+
+Use `backend` and `database` respectively for the other services.
+
+### 2. Start Services
+
+```bash
+docker compose up -d --force-recreate frontend backend database
+```
+
+Make sure SPIRE Server and Agent are running:
+
+```bash
+docker compose up -d spire-server spire-agent
+```
+
+### 3. Find Agent SPIFFE ID
+
+```bash
+docker compose exec spire-server \
+  /opt/spire/bin/spire-server agent list \
+  -socketPath /tmp/spire-server/private/api.sock
+```
+
+Copy the agent's SPIFFE ID. It will look similar to:
+
+```text
+spiffe://lab.local/spire/agent/join_token/...
+```
+
+### 4. Create Workload Entries
+
+Frontend:
+
+```bash
+docker compose exec spire-server \
+  /opt/spire/bin/spire-server entry create \
+  -socketPath /tmp/spire-server/private/api.sock \
+  -parentID 'AGENT_SPIFFE_ID' \
+  -spiffeID spiffe://lab.local/frontend \
+  -selector docker:label:spiffe.workload:frontend
+```
+
+Backend:
+
+```bash
+docker compose exec spire-server \
+  /opt/spire/bin/spire-server entry create \
+  -socketPath /tmp/spire-server/private/api.sock \
+  -parentID 'AGENT_SPIFFE_ID' \
+  -spiffeID spiffe://lab.local/backend \
+  -selector docker:label:spiffe.workload:backend
+```
+
+Database:
+
+```bash
+docker compose exec spire-server \
+  /opt/spire/bin/spire-server entry create \
+  -socketPath /tmp/spire-server/private/api.sock \
+  -parentID 'AGENT_SPIFFE_ID' \
+  -spiffeID spiffe://lab.local/database \
+  -selector docker:label:spiffe.workload:database
+```
+
+### 5. Verify Entries
+
+```bash
+docker compose exec spire-server \
+  /opt/spire/bin/spire-server entry show \
+  -socketPath /tmp/spire-server/private/api.sock
+```
+
+Expected:
+
+```text
+Found 3 entries
+
+spiffe://lab.local/frontend
+  -> docker:label:spiffe.workload:frontend
+
+spiffe://lab.local/backend
+  -> docker:label:spiffe.workload:backend
+
+spiffe://lab.local/database
+  -> docker:label:spiffe.workload:database
+```
+
+### Lab 3 Result
+
+```text
+[✓] SPIRE Server
+[✓] SPIRE Agent
+[✓] Docker Workload Attestation
+[✓] Frontend SPIFFE ID
+[✓] Backend SPIFFE ID
+[✓] Database SPIFFE ID
+[ ] mTLS
+```
+
+Application traffic is still unchanged:
+
+```text
+Frontend -- HTTP --> Backend -- plaintext --> Database
+```
+
+The next lab will use these workload identities to establish mTLS.
+
+
 
 ### Lab 4
 

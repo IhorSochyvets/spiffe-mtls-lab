@@ -3,11 +3,18 @@ services:
     build:
       context: ./frontend
     container_name: lab-frontend
+    # LAB 3
+    labels:
+      spiffe.workload: frontend
+
     ports:
       - "8080:80"
     depends_on:
       backend:
         condition: service_healthy
+    volumes:
+      - ./spire/sockets:/run/spire/sockets:ro
+
     networks:
       - lab-network
 
@@ -15,6 +22,11 @@ services:
     build:
       context: ./backend
     container_name: lab-backend
+
+    # LAB 3
+    labels:
+      spiffe.workload: backend
+
     environment:
       DB_HOST: database
       DB_PORT: "5432"
@@ -24,6 +36,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+    volumes:
+      - ./spire/sockets:/run/spire/sockets:ro
     healthcheck:
       test:
         [
@@ -41,6 +55,11 @@ services:
   database:
     image: postgres:16-alpine
     container_name: lab-database
+
+    # LAB 3
+    labels:
+      spiffe.workload: database
+
     environment:
       POSTGRES_DB: lab
       POSTGRES_USER: lab
@@ -48,6 +67,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./spire/sockets:/run/spire/sockets:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
       interval: 5s
