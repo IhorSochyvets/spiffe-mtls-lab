@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SPIFFE mTLS Lab</title>
+
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 0 20px;
+            background: #f5f5f5;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        pre {
+            background: #222;
+            color: #eee;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="card">
+    <h1>SPIFFE / SPIRE mTLS Lab</h1>
+
+    <p>
+        Lab 1: Plain Docker Compose communication.
+    </p>
+
+    <pre>
+Browser
+   |
+   v
+Frontend
+   |
+   | HTTP
+   v
+Backend
+   |
+   | PostgreSQL
+   v
+Database
+    </pre>
+</div>
+
+<div class="card">
+    <h2>Backend health</h2>
+
+    <button onclick="checkBackend()">
+        Call Backend
+    </button>
+
+    <pre id="backend-result">Not called yet</pre>
+</div>
+
+<div class="card">
+    <h2>Database</h2>
+
+    <button onclick="loadMessages()">
+        Load messages from PostgreSQL
+    </button>
+
+    <pre id="database-result">Not called yet</pre>
+</div>
+
+
+<script>
+async function checkBackend() {
+
+    const output = document.getElementById("backend-result");
+
+    try {
+        const response = await fetch("/api/");
+
+        const data = await response.json();
+
+        output.textContent =
+            JSON.stringify(data, null, 2);
+
+    } catch (error) {
+
+        output.textContent =
+            "Error: " + error;
+    }
+}
+
+
+async function loadMessages() {
+
+    const output =
+        document.getElementById("database-result");
+
+    try {
+
+        const response =
+            await fetch("/api/messages");
+
+        const data =
+            await response.json();
+
+        output.textContent =
+            JSON.stringify(data, null, 2);
+
+    } catch (error) {
+
+        output.textContent =
+            "Error: " + error;
+    }
+}
+</script>
+
+</body>
+</html>

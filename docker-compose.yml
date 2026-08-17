@@ -1,0 +1,64 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    container_name: lab-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - lab-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: lab-backend
+    environment:
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_NAME: lab
+      DB_USER: lab
+      DB_PASSWORD: lab
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - lab-network
+
+  database:
+    image: postgres:16-alpine
+    container_name: lab-database
+    environment:
+      POSTGRES_DB: lab
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - lab-network
+
+volumes:
+  postgres-data:
+
+networks:
+  lab-network:
+    driver: bridge

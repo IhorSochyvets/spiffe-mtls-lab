@@ -1,0 +1,4 @@
+# Backend Envoy configuration.
+#
+# Not used in Lab 1.
+# mTLS proxy configuration will be added later.
