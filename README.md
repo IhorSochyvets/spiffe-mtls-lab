@@ -16,118 +16,6 @@ Learning project for experimenting with:
 - Envoy
 - Workload identity
 
-## Lab 1
-
-Lab 1 implements the application without TLS or SPIFFE.
-
-Architecture:
-
-```text
-Browser
-   |
-   | HTTP
-   v
-Frontend / Nginx
-   |
-   | HTTP
-   v
-Backend / FastAPI
-   |
-   | Plain PostgreSQL TCP
-   v
-PostgreSQL
-```
-
-## Start
-
-```bash
-docker compose up --build
-```
-
-Open:
-
-```text
-http://localhost:8080
-```
-
-## Test backend through frontend
-
-```bash
-curl http://localhost:8080/api/
-```
-
-Expected response:
-
-```json
-{
-  "service": "backend",
-  "status": "ok",
-  "lab": "Lab 1",
-  "transport": "HTTP",
-  "mtls": false,
-  "spiffe": false
-}
-```
-
-## Test database path
-
-```bash
-curl http://localhost:8080/api/messages
-```
-
-Traffic flow:
-
-```text
-curl
-  |
-  v
-localhost:8080
-  |
-  v
-frontend
-  |
-  | HTTP
-  v
-backend:8000
-  |
-  | PostgreSQL
-  v
-database:5432
-```
-
-## View containers
-
-```bash
-docker compose ps
-```
-
-## View logs
-
-```bash
-docker compose logs -f
-```
-
-Or:
-
-```bash
-docker compose logs -f frontend
-docker compose logs -f backend
-docker compose logs -f database
-```
-
-## Stop
-
-```bash
-docker compose down
-```
-
-Remove PostgreSQL data as well:
-
-```bash
-docker compose down -v
-```
-
-## Planned labs
 
 ### Lab 1 — Frontend, Backend and Database
 
@@ -152,7 +40,7 @@ Database / PostgreSQL
 ### 1. Start Lab
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build frontend backend database
 ```
 
 Verify:
